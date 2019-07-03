@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Newtonsoft.Json;
 
 namespace RestApiBase.Models
 {
@@ -8,7 +10,16 @@ namespace RestApiBase.Models
 
         [MaxLength(UsernameMaxLength)]
         public string Username {get; set;}
+        [JsonIgnore]
         public byte[] PasswordHash {get; set;}
+        [JsonIgnore]
         public byte[] PasswordSalt {get; set;}
+        public string Nombre {get; set;}
+        public string Apellido{get; set;}
+        public string NroDocumento {get; set;}
+        [JsonIgnore]
+        [ForeignKey("IdRol")]
+        public Rol Rol {get; set;}
+        public long IdRol {get; set;}
     }
 }
