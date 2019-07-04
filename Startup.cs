@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RestApiBase.Data;
 using RestApiBase.Mappings;
+using RestApiBase.Services;
 
 namespace RestApiBase
 {
@@ -37,6 +38,9 @@ namespace RestApiBase
             // Automapper service
             Mapper.Initialize(cfg => cfg.AddProfile<MappingProfile>());
             services.AddAutoMapper();
+
+            // Auth service
+            services.AddScoped<IAuthService, AuthService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
