@@ -10,7 +10,7 @@ using RestApiBase.Models;
 namespace RestApiBase.Controllers
 {
     public abstract class ApiControllerBase<TEntity, TDto>: ControllerBase 
-    where TEntity: EntityBase, new() where TDto : new()
+    where TEntity: EntityBase, new() where TDto : class
     {
         protected readonly DataContext _context;
         protected readonly IMapper _mapper;
@@ -65,7 +65,7 @@ namespace RestApiBase.Controllers
         [HttpPost]
         public virtual async Task<IActionResult> Create(TDto dto)
         {
-            if (IsValidDto(dto))
+            if (await IsValidDto(dto))
             {
                 TEntity entity = _mapper.Map<TEntity>(dto);
                 await _dbSet.AddAsync(entity);
@@ -80,7 +80,7 @@ namespace RestApiBase.Controllers
         [HttpPut("{id}")]
         public virtual async Task<IActionResult> Update(long id, TDto dto)
         {
-            if (IsValidDto(dto))
+            if (await IsValidDto(dto, id))
             {
                 var entity = await _dbSet.FindAsync(id);
                 if (entity == null) return NotFound();
@@ -121,21 +121,21 @@ namespace RestApiBase.Controllers
         }
 
         // metodo para realizar validaciones
-        protected virtual bool IsValidDto(TDto dto)
+        protected virtual async Task<bool> IsValidDto(TDto dto, long id = 0)
         {
             return ModelState.IsValid;
         }
 
         // metodo para refinar las consultas del list
         // realizar Includes, Where, etc.
-        public virtual IQueryable<TEntity> RefineListQuery(IQueryable<TEntity> query)
+        protected virtual IQueryable<TEntity> RefineListQuery(IQueryable<TEntity> query)
         {
             return query;
         }
 
         // metodo para refinar las consultas del detail
         // realizar Includes, Where, etc.
-        public virtual IQueryable<TEntity> RefineDetailQuery(IQueryable<TEntity> query)
+        protected virtual IQueryable<TEntity> RefineDetailQuery(IQueryable<TEntity> query)
         {
             return query;
         }
