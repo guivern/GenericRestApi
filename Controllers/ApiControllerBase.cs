@@ -9,8 +9,7 @@ using RestApiBase.Models;
 
 namespace RestApiBase.Controllers
 {
-    public abstract class ApiControllerBase<TEntity, TDto>: ControllerBase 
-    where TEntity: EntityBase, new() where TDto : class
+    public abstract class ApiControllerBase<TEntity, TDto> : ControllerBase where TEntity : EntityBase, new() where TDto : class
     {
         protected readonly DataContext _context;
         protected readonly IMapper _mapper;
@@ -23,23 +22,23 @@ namespace RestApiBase.Controllers
             _context = context;
             _mapper = mapper;
             _dbSet = _context.Set<TEntity>();
-            isSoftDelete = typeof (TEntity).IsSubclassOf(typeof (SoftDeleteEntityBase));
-            isAudit = typeof (TEntity).IsSubclassOf(typeof (AuditEntityBase));
+            isSoftDelete = typeof(TEntity).IsSubclassOf(typeof(SoftDeleteEntityBase));
+            isAudit = typeof(TEntity).IsSubclassOf(typeof(AuditEntityBase));
         }
 
         [HttpGet]
         public virtual async Task<IActionResult> List()
         {
             // prepara query
-            var query =  _dbSet.AsQueryable(); 
-            if(isSoftDelete)
+            var query = _dbSet.AsQueryable();
+            if (isSoftDelete)
             {
                 query = query.Where(e => (e as SoftDeleteEntityBase).Activo);
             }
             // refina query
             query = RefineListQuery(query);
             // ejecuta query
-            var result = await query.ToListAsync(); 
+            var result = await query.ToListAsync();
             return Ok(result);
         }
 
@@ -48,7 +47,7 @@ namespace RestApiBase.Controllers
         {
             // prepara query
             var query = _dbSet.AsQueryable();
-            if(isSoftDelete)
+            if (isSoftDelete)
             {
                 query = query.Where(e => (e as SoftDeleteEntityBase).Activo);
             }
@@ -56,8 +55,8 @@ namespace RestApiBase.Controllers
             query = RefineDetailQuery(query);
             // ejecuta query
             var result = await query.SingleOrDefaultAsync(r => r.Id == id);
-            
-            if(result == null) return NotFound();
+
+            if (result == null) return NotFound();
 
             return Ok(result);
         }
@@ -86,7 +85,7 @@ namespace RestApiBase.Controllers
                 if (entity == null) return NotFound();
 
                 entity = _mapper.Map<TDto, TEntity>(dto, entity);
-                
+
                 if (isAudit)
                 {
                     (entity as AuditEntityBase).FechaEdicion = DateTime.Now;
@@ -111,11 +110,11 @@ namespace RestApiBase.Controllers
             {
                 (entity as SoftDeleteEntityBase).Activo = false;
             }
-            else 
+            else
             {
                 _dbSet.Remove(entity);
             }
-            
+
             await _context.SaveChangesAsync();
             return NoContent();
         }
