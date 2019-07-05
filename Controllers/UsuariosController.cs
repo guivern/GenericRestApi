@@ -3,8 +3,8 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using RestApiBase.Annotations;
 using RestApiBase.Data;
+using RestApiBase.Dtos;
 using RestApiBase.Models;
 using RestApiBase.Services;
 
@@ -22,53 +22,18 @@ namespace RestApiBase.Controllers
             _authService = authService;
         }
 
-        [HttpPost]
-        public override async Task<IActionResult> Create(UsuarioDto dto)
+        protected override void CustomMapping(ref Usuario entity, UsuarioDto dto)
         {
-            if (!await IsValidDto(dto)) return BadRequest(ModelState);
-
-            var usuario = new Usuario()
-            {
-                Username = dto.Username.ToLower(),
-                IdRol = (long)dto.IdRol,
-            };
-
             byte[] passwordHash, passwordSalt;
 
             _authService.CreatePasswordHash(dto.Password, out passwordHash, out passwordSalt);
-            usuario.PasswordHash = passwordHash;
-            usuario.PasswordSalt = passwordSalt;
-
-            await _context.Usuarios.AddAsync(usuario);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("Detail", new { id = usuario.Id }, usuario); 
-        }
-
-        [HttpPut("{id}")]
-        public override async Task<IActionResult> Update(long id, UsuarioDto dto)
-        {
-            if (!await UserExits(id)) return NotFound();
-            if (!await IsValidDto(dto, id)) return BadRequest(ModelState);
-
-            byte[] passwordHash, passwordSalt;
-
-            var usuario = await _context.Usuarios.FindAsync(id);
-            usuario.Username = dto.Username.ToLower();
-            usuario.IdRol = (long)dto.IdRol;
-
-            _authService.CreatePasswordHash(dto.Password, out passwordHash, out passwordSalt);
-            usuario.PasswordHash = passwordHash;
-            usuario.PasswordSalt = passwordSalt;
-
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            entity.PasswordHash = passwordHash;
+            entity.PasswordSalt = passwordSalt;    
         }
 
         protected override async Task<bool> IsValidDto(UsuarioDto dto, long id = 0)
         {
-            if (await UsernameIsValid(dto.Username, id))
+            if (await IsValidUsername(dto.Username, id))
             {
                 ModelState.AddModelError(nameof(dto.Username), "No disponible");
             }
@@ -81,31 +46,21 @@ namespace RestApiBase.Controllers
             return ModelState.IsValid;
         }
 
-        private async Task<bool> UsernameIsValid(string username, long id)
+        protected override IQueryable<Usuario> IncludeNestedEntitiesInList(IQueryable<Usuario> query)
+        {
+            return query.Include(u => u.Rol).Include(u => u.UsuarioCreador);
+        }
+
+        protected override IQueryable<Usuario> IncludeNestedEntitiesInDetail(IQueryable<Usuario> query)
+        {
+            return query.Include(u => u.Rol);
+        }
+
+        private async Task<bool> IsValidUsername(string username, long id)
         {
             username = username.ToLower();
             return await _context.Usuarios
             .AnyAsync(u => u.Username.Equals(username) && u.Id != id);
         }
-
-        private async Task<bool> UserExits(long id)
-        {
-            return await _context.Usuarios.AnyAsync(u => u.Id == id);
-        }
-
-    }
-
-    public class UsuarioDto
-    {
-        [Requerido]
-        public string Username { get; set; }
-        [Requerido]
-        [LongMin(5)]
-        public string Password { get; set; }
-        [Requerido]
-        [LongMin(5)]
-        public string ConfirmPassword { get; set; }
-        [Requerido]
-        public long? IdRol { get; set; }
     }
 }
