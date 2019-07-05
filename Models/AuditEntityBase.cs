@@ -7,17 +7,17 @@ namespace RestApiBase.Models
     public class AuditEntityBase: SoftDeleteEntityBase
     {
         [JsonIgnore]
-        [ForeignKey("IdUsarioCreador")]
+        [ForeignKey("IdUsuarioCreador")]
         public Usuario UsuarioCreador {get; set;}
-        public long? IdUsarioCreador {get; set;}
-
+        public long? IdUsuarioCreador {get; set;}
+        [JsonIgnore]
         public DateTime FechaCreacion {get; set;} = DateTime.Now;
 
         [JsonIgnore]
-        [ForeignKey("IdUsarioEditor")]
+        [ForeignKey("IdUsuarioEditor")]
         public Usuario UsuarioEditor {get; set;}
-        public long? IdUsarioEditor {get; set;}
-
+        public long? IdUsuarioEditor {get; set;}
+        [JsonIgnore]
         public DateTime? FechaEdicion {get; set;}
     }
 }

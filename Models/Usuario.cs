@@ -21,5 +21,9 @@ namespace RestApiBase.Models
         [ForeignKey("IdRol")]
         public Rol Rol {get; set;}
         public long IdRol {get; set;}
+        [NotMapped]
+        public virtual string NombreRol => Rol?.Nombre;
+        [NotMapped]
+        public virtual string NombreUsuarioCreador => UsuarioCreador?.Username;
     }
 }
