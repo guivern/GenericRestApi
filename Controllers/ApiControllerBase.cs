@@ -38,7 +38,8 @@ namespace RestApiBase.Controllers
             // incluye las entidades relacionadas
             query = IncludeNestedEntitiesInList(query);
             // ejecuta query
-            var result = await query.ToListAsync();
+            var result = await query.OrderByDescending(e => e.Id).ToListAsync();
+            
             return Ok(result);
         }
 
@@ -68,7 +69,7 @@ namespace RestApiBase.Controllers
             TEntity entity = _mapper.Map<TEntity>(dto);
 
             await _dbSet.AddAsync(entity);
-            
+
             CustomMapping(ref entity, dto);
             BeforeSaveChanges(entity);
             await _context.SaveChangesAsync();
@@ -147,8 +148,10 @@ namespace RestApiBase.Controllers
 
         // para agregar mas cambios al contexto antes de guardar,
         // siguiendo el patron Unit of Work. 
-        protected virtual void BeforeSaveChanges(TEntity entity)
-        {}
+        protected virtual async void BeforeSaveChanges(TEntity entity)
+        {
+            await Task.Run(() => {});
+        }
 
         // para mapear atributos que no se mapean con Automapper 
         protected virtual void CustomMapping(ref TEntity entity, TDto dto)
