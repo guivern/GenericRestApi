@@ -1,4 +1,6 @@
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
@@ -6,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using RestApiBase.Data;
 using RestApiBase.Dtos;
 using RestApiBase.Models;
-using RestApiBase.Services;
 
 namespace RestApiBase.Controllers
 {
@@ -14,19 +15,14 @@ namespace RestApiBase.Controllers
     [ApiController]
     public class UsuariosController : ApiControllerBase<Usuario,UsuarioDto>
     {
-        private readonly IAuthService _authService;
-
-        public UsuariosController(DataContext context, IAuthService authService, IMapper mapper)
-        : base(context, mapper)
-        {
-            _authService = authService;
-        }
+        public UsuariosController(DataContext context, IMapper mapper)
+        : base(context, mapper){}
 
         protected override void CustomMapping(ref Usuario entity, UsuarioDto dto)
         {
             byte[] passwordHash, passwordSalt;
 
-            _authService.CreatePasswordHash(dto.Password, out passwordHash, out passwordSalt);
+            CreatePasswordHash(dto.Password, out passwordHash, out passwordSalt);
             entity.PasswordHash = passwordHash;
             entity.PasswordSalt = passwordSalt;    
         }
@@ -54,6 +50,16 @@ namespace RestApiBase.Controllers
         protected override IQueryable<Usuario> IncludeNestedEntitiesInDetail(IQueryable<Usuario> query)
         {
             return query.Include(u => u.Rol);
+        }
+
+        // Genera un salt y hash a partir del password
+        private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
+        {
+            using (var hmac = new HMACSHA512())
+            {
+                passwordSalt = hmac.Key; // clave para generar el hash
+                passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+            }
         }
 
         private async Task<bool> IsValidUsername(string username, long id)
