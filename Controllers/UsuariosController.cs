@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RestApiBase.Data;
@@ -13,6 +14,7 @@ namespace RestApiBase.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Administrador")]
     public class UsuariosController : ApiControllerBase<Usuario,UsuarioDto>
     {
         public UsuariosController(DataContext context, IMapper mapper)
