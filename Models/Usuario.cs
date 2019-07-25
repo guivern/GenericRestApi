@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Newtonsoft.Json;
+using RestApiBase.Annotations;
+using static RestApiBase.Annotations.SearchFilter;
 
 namespace RestApiBase.Models
 {
@@ -9,6 +11,7 @@ namespace RestApiBase.Models
         public const int UsernameMaxLength = 12;
 
         [MaxLength(UsernameMaxLength)]
+        [SearchFilter]
         public string Username {get; set;}
 
         [JsonIgnore]
@@ -16,11 +19,14 @@ namespace RestApiBase.Models
         
         [JsonIgnore]
         public byte[] PasswordSalt {get; set;}
-        
+
+        [SearchFilter]
         public string Nombre {get; set;}
         
+        [SearchFilter]
         public string Apellido{get; set;}
         
+        [SearchFilter]
         public string NroDocumento {get; set;}
         
         [JsonIgnore]

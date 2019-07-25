@@ -1,9 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
+using RestApiBase.Annotations;
 using RestApiBase.Data;
 using RestApiBase.Models;
 
@@ -16,6 +21,7 @@ namespace RestApiBase.Controllers
         protected readonly DbSet<TEntity> _dbSet;
         protected readonly bool isSoftDelete;
         protected readonly bool isAudit;
+        protected readonly List<PropertyInfo> filterProps;
 
         public ApiControllerBase(DataContext context, IMapper mapper)
         {
@@ -24,6 +30,7 @@ namespace RestApiBase.Controllers
             _dbSet = _context.Set<TEntity>();
             isSoftDelete = typeof(TEntity).IsSubclassOf(typeof(SoftDeleteEntityBase));
             isAudit = typeof(TEntity).IsSubclassOf(typeof(AuditEntityBase));
+            filterProps = GetFilterProps();
         }
 
         [HttpGet]
@@ -39,8 +46,99 @@ namespace RestApiBase.Controllers
             query = IncludeNestedEntitiesInList(query);
             // ejecuta query
             var result = await query.OrderByDescending(e => e.Id).ToListAsync();
-            
+
             return Ok(result);
+        }
+
+        [HttpGet("search")]
+        public virtual async Task<IActionResult> Search([FromQuery] string filter)
+        {
+            // prepara query
+            var query = _dbSet.AsQueryable();
+            if (isSoftDelete)
+            {
+                query = query.Where(e => (e as SoftDeleteEntityBase).Activo);
+            }
+            // incluye las entidades relacionadas
+            query = IncludeNestedEntitiesInList(query);
+
+            // filtro por cada propiedad filtrable
+            //foreach (var prop in filterProps)
+            //{
+            //  var propName = prop.Name;
+            query = Filter(query, filter);
+            //}
+
+            var result = await query.ToListAsync();
+
+            return Ok(result);
+
+        }
+
+        /* public IQueryable<TEntity> Filter(IQueryable<TEntity> query, string searchString)
+        {
+            //var property = typeof(TEntity).GetProperty(key, BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Instance);
+
+            //if (property == null)
+            //throw new ArgumentException($"'{typeof(TEntity).Name}' does not implement a public get property named '{key}'.");
+
+            //Equals
+            //return data.Where(d => property.GetValue(d).Equals(searchString)).ToList();
+
+            //Contains:
+            foreach (var prop in filterProps)
+            {
+                query.Where(d => ((string)prop.GetValue(d)).Contains(searchString)).ToList();
+            }
+
+            return query;
+        }*/
+
+        protected IQueryable<TEntity> Filter(IQueryable<TEntity> filterable, string ParameterValue)
+        {
+            //https://stackoverflow.com/questions/34192488/build-an-expression-tree-with-multiple-parameters
+            ConstantExpression constant = Expression.Constant(ParameterValue);
+            ParameterExpression parameter = Expression.Parameter(typeof(TEntity), "e");
+            MemberExpression[] members = new MemberExpression[filterProps.Count()];
+            MethodInfo method = typeof(string).GetMethod("StartsWith", BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(string) }, null);
+            //typeof(string).GetMethod("Contains", new[] { typeof(string) });
+
+            for (int i = 0; i < filterProps.Count(); i++)
+            {
+                members[i] = Expression.Property(parameter, filterProps[i]);
+            }
+
+            Expression predicate = null;
+            foreach (var item in members)
+            {
+                MethodCallExpression callExpression = Expression.Call(item, method, constant);
+                predicate = predicate == null ? (Expression)callExpression : Expression.OrElse(predicate, callExpression);
+            }
+
+            var Lambda = Expression.Lambda<Func<TEntity, bool>>(predicate, parameter);
+
+            //var Lambda = Expression.Lambda<Func<T, Boolean>>(Expression.Equal(c, m), new[] { p });
+
+            //Func<TEntity, Boolean> func = Lambda.Compile();
+            return filterable.Where(Lambda);
+        }
+
+        private List<PropertyInfo> GetFilterProps()
+        {
+            var t = typeof(TEntity);
+            var props = t.GetProperties();
+            var filterProps = new List<PropertyInfo>();
+
+            foreach (var prop in props)
+            {
+                var attr = (SearchFilter[])prop.GetCustomAttributes(typeof(SearchFilter), false);
+                if (attr.Length > 0)
+                {
+                    filterProps.Add(prop);
+                }
+            }
+
+            return filterProps;
         }
 
         [HttpGet("{id}")]
@@ -150,11 +248,11 @@ namespace RestApiBase.Controllers
         // siguiendo el patron Unit of Work. 
         protected virtual async void BeforeSaveChanges(TEntity entity)
         {
-            await Task.Run(() => {});
+            await Task.Run(() => { });
         }
 
         // para mapear atributos que no se mapean con Automapper 
         protected virtual void CustomMapping(ref TEntity entity, TDto dto)
-        {}
+        { }
     }
 }
