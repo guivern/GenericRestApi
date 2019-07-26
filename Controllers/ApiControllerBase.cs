@@ -37,10 +37,12 @@ namespace RestApiBase.Controllers
         {
             // prepara query
             var query = _dbSet.AsQueryable();
-            if (isSoftDelete)
+
+            if(isSoftDelete) 
             {
-                query = query.Where(e => (e as SoftDeleteEntityBase).Activo);
+                query = SoftDeleteFilter(query);
             }
+
             // incluye las entidades relacionadas y filtra
             query = Filter(IncludeNestedEntitiesInList(query), filter);
             // ejecuta query
@@ -56,7 +58,7 @@ namespace RestApiBase.Controllers
             var query = _dbSet.AsQueryable();
             if (isSoftDelete)
             {
-                query = query.Where(e => (e as SoftDeleteEntityBase).Activo);
+                query = SoftDeleteFilter(query);
             }
             // incluye las entidades relacionadas
             query = IncludeNestedEntitiesInDetail(query);
@@ -128,17 +130,17 @@ namespace RestApiBase.Controllers
             return NoContent();
         }
 
-        private IQueryable<TEntity> Filter(IQueryable<TEntity> query, string ParameterValue)
+        private IQueryable<TEntity> Filter(IQueryable<TEntity> query, string value)
         {
-            // Obtenido de:
             // https://stackoverflow.com/questions/34192488/build-an-expression-tree-with-multiple-parameters
             // https://stackoverflow.com/questions/57209466/generic-search-with-expression-trees-gives-system-nullreferenceexception-for-nul
-            if (string.IsNullOrEmpty(ParameterValue) || this.filterProps.Count == 0) return query;
+            if (string.IsNullOrEmpty(value) || this.filterProps.Count == 0) return query;
 
-            ConstantExpression constant = Expression.Constant(ParameterValue);
+            ConstantExpression constant = Expression.Constant(value.ToLower());
             ParameterExpression parameter = Expression.Parameter(typeof(TEntity), "e");
             MemberExpression[] members = new MemberExpression[filterProps.Count()];
-            MethodInfo method = typeof(string).GetMethod("Contains", new[] { typeof(string) });
+            MethodInfo containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) });
+            MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", System.Type.EmptyTypes);
             //MethodInfo method = typeof(string).GetMethod("StartsWith", BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(string) }, null);
 
             for (int i = 0; i < filterProps.Count(); i++)
@@ -150,11 +152,13 @@ namespace RestApiBase.Controllers
             foreach (var member in members)
             {
                 //e => e.Member != null
-                BinaryExpression nullExpression = Expression.NotEqual(member, Expression.Constant(null));
+                BinaryExpression notNullExp = Expression.NotEqual(member, Expression.Constant(null));
+                //e => e.Member.ToLower() 
+                MethodCallExpression toLowerExp = Expression.Call(member, toLowerMethod);
                 //e => e.Member.Contains(value)
-                MethodCallExpression callExpression = Expression.Call(member, method, constant);
+                MethodCallExpression containsExp = Expression.Call(toLowerExp, containsMethod, constant);
                 //e => e.Member != null && e.Member.Contains(value)
-                BinaryExpression filterExpression = Expression.AndAlso(nullExpression, callExpression);
+                BinaryExpression filterExpression = Expression.AndAlso(notNullExp, containsExp);
 
                 predicate = predicate == null ? (Expression)filterExpression : Expression.OrElse(predicate, filterExpression);
             }
@@ -162,6 +166,19 @@ namespace RestApiBase.Controllers
             var lambda = Expression.Lambda<Func<TEntity, bool>>(predicate, parameter);
 
             return query.Where(lambda);
+        }
+
+        private IQueryable<TEntity> SoftDeleteFilter(IQueryable<TEntity> query)
+        {
+            var parameter = Expression.Parameter(typeof(TEntity), "e");
+            var trueCons = Expression.Constant(true);
+            var property = Expression.Property(parameter, "Activo");
+            // e => e.Activo == true
+            var activeExp = Expression.Equal(property, trueCons);
+
+            query = query.Where(Expression.Lambda<Func<TEntity, bool>>(activeExp, parameter));
+
+            return query;
         }
 
         // Obtiene los atributos filtrables de la entidad
