@@ -1,9 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RestApiBase.Annotations;
 using RestApiBase.Data;
 using RestApiBase.Models;
 
@@ -16,6 +20,7 @@ namespace RestApiBase.Controllers
         protected readonly DbSet<TEntity> _dbSet;
         protected readonly bool isSoftDelete;
         protected readonly bool isAudit;
+        protected readonly List<PropertyInfo> filterProps;
 
         public ApiControllerBase(DataContext context, IMapper mapper)
         {
@@ -24,22 +29,25 @@ namespace RestApiBase.Controllers
             _dbSet = _context.Set<TEntity>();
             isSoftDelete = typeof(TEntity).IsSubclassOf(typeof(SoftDeleteEntityBase));
             isAudit = typeof(TEntity).IsSubclassOf(typeof(AuditEntityBase));
+            filterProps = GetFilterProps();
         }
 
         [HttpGet]
-        public virtual async Task<IActionResult> List()
+        public virtual async Task<IActionResult> List([FromQuery] string filter)
         {
             // prepara query
             var query = _dbSet.AsQueryable();
-            if (isSoftDelete)
+
+            if(isSoftDelete) 
             {
-                query = query.Where(e => (e as SoftDeleteEntityBase).Activo);
+                query = SoftDeleteFilter(query);
             }
-            // incluye las entidades relacionadas
-            query = IncludeNestedEntitiesInList(query);
+
+            // incluye las entidades relacionadas y filtra
+            query = Filter(IncludeNestedEntitiesInList(query), filter);
             // ejecuta query
             var result = await query.OrderByDescending(e => e.Id).ToListAsync();
-            
+
             return Ok(result);
         }
 
@@ -50,7 +58,7 @@ namespace RestApiBase.Controllers
             var query = _dbSet.AsQueryable();
             if (isSoftDelete)
             {
-                query = query.Where(e => (e as SoftDeleteEntityBase).Activo);
+                query = SoftDeleteFilter(query);
             }
             // incluye las entidades relacionadas
             query = IncludeNestedEntitiesInDetail(query);
@@ -95,7 +103,6 @@ namespace RestApiBase.Controllers
 
             // FindAsync() carga la entidad en memoria y el contexto le
             // da seguimiento por lo que no es necesario usar Update()
-
             CustomMapping(ref entity, dto);
             BeforeSaveChanges(entity);
             await _context.SaveChangesAsync();
@@ -121,6 +128,76 @@ namespace RestApiBase.Controllers
 
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        private IQueryable<TEntity> Filter(IQueryable<TEntity> query, string value)
+        {
+            // https://stackoverflow.com/questions/34192488/build-an-expression-tree-with-multiple-parameters
+            // https://stackoverflow.com/questions/57209466/generic-search-with-expression-trees-gives-system-nullreferenceexception-for-nul
+            if (string.IsNullOrEmpty(value) || this.filterProps.Count == 0) return query;
+
+            ConstantExpression constant = Expression.Constant(value.ToLower());
+            ParameterExpression parameter = Expression.Parameter(typeof(TEntity), "e");
+            MemberExpression[] members = new MemberExpression[filterProps.Count()];
+            MethodInfo containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) });
+            MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", System.Type.EmptyTypes);
+            //MethodInfo method = typeof(string).GetMethod("StartsWith", BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(string) }, null);
+
+            for (int i = 0; i < filterProps.Count(); i++)
+            {
+                members[i] = Expression.Property(parameter, filterProps[i]);
+            }
+
+            Expression predicate = null;
+            foreach (var member in members)
+            {
+                //e => e.Member != null
+                BinaryExpression notNullExp = Expression.NotEqual(member, Expression.Constant(null));
+                //e => e.Member.ToLower() 
+                MethodCallExpression toLowerExp = Expression.Call(member, toLowerMethod);
+                //e => e.Member.Contains(value)
+                MethodCallExpression containsExp = Expression.Call(toLowerExp, containsMethod, constant);
+                //e => e.Member != null && e.Member.Contains(value)
+                BinaryExpression filterExpression = Expression.AndAlso(notNullExp, containsExp);
+
+                predicate = predicate == null ? (Expression)filterExpression : Expression.OrElse(predicate, filterExpression);
+            }
+
+            var lambda = Expression.Lambda<Func<TEntity, bool>>(predicate, parameter);
+
+            return query.Where(lambda);
+        }
+
+        private IQueryable<TEntity> SoftDeleteFilter(IQueryable<TEntity> query)
+        {
+            var parameter = Expression.Parameter(typeof(TEntity), "e");
+            var trueCons = Expression.Constant(true);
+            var property = Expression.Property(parameter, "Activo");
+            // e => e.Activo == true
+            var activeExp = Expression.Equal(property, trueCons);
+
+            query = query.Where(Expression.Lambda<Func<TEntity, bool>>(activeExp, parameter));
+
+            return query;
+        }
+
+        // Obtiene los atributos filtrables de la entidad
+        private List<PropertyInfo> GetFilterProps()
+        {
+            var t = typeof(TEntity);
+            var props = t.GetProperties();
+            var filterProps = new List<PropertyInfo>();
+
+            foreach (var prop in props)
+            {
+                var attr = (SearchFilter[])prop.GetCustomAttributes(typeof(SearchFilter), false);
+                if (attr.Length > 0)
+                {
+                    filterProps.Add(prop);
+                }
+            }
+
+            return filterProps;
         }
 
         private async Task<bool> EntityExits(long id)
@@ -150,11 +227,11 @@ namespace RestApiBase.Controllers
         // siguiendo el patron Unit of Work. 
         protected virtual async void BeforeSaveChanges(TEntity entity)
         {
-            await Task.Run(() => {});
+            await Task.Run(() => { });
         }
 
         // para mapear atributos que no se mapean con Automapper 
         protected virtual void CustomMapping(ref TEntity entity, TDto dto)
-        {}
+        { }
     }
 }
