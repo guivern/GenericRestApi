@@ -38,7 +38,7 @@ namespace RestApiBase.Controllers
             // prepara query
             var query = _dbSet.AsQueryable();
 
-            if(isSoftDelete) 
+            if (isSoftDelete)
             {
                 query = SoftDeleteFilter(query);
             }
@@ -130,6 +130,12 @@ namespace RestApiBase.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Filtra la consulta de acuerdo a las propiedades filtrables de la entidad
+        /// </summary>
+        /// <param name="query">La consulta a filtrar</param>
+        /// <param name="value">El valor del filtro</param>
+        /// <returns></returns>
         private IQueryable<TEntity> Filter(IQueryable<TEntity> query, string value)
         {
             // https://stackoverflow.com/questions/34192488/build-an-expression-tree-with-multiple-parameters
@@ -145,7 +151,17 @@ namespace RestApiBase.Controllers
 
             for (int i = 0; i < filterProps.Count(); i++)
             {
-                members[i] = Expression.Property(parameter, filterProps[i]);
+                var attr = (SearchFilter[])filterProps[i].GetCustomAttributes(typeof(SearchFilter), false);
+                var nestedProp = attr[0].nestedProp;
+
+                if (nestedProp != null)
+                {   // si el filtro es una propiedad de una entidad anidada
+                    members[i] = GetNestedMemberExpression(parameter, nestedProp);
+                }
+                else
+                {
+                    members[i] = Expression.Property(parameter, filterProps[i]);
+                }
             }
 
             Expression predicate = null;
@@ -166,6 +182,16 @@ namespace RestApiBase.Controllers
             var lambda = Expression.Lambda<Func<TEntity, bool>>(predicate, parameter);
 
             return query.Where(lambda);
+        }
+
+        private MemberExpression GetNestedMemberExpression(ParameterExpression parameter, string propertyName)
+        {
+            Expression expression = parameter;
+            foreach (var member in propertyName.Split('.'))
+            {
+                expression = Expression.PropertyOrField(expression, member);
+            }
+            return (MemberExpression)expression;
         }
 
         private IQueryable<TEntity> SoftDeleteFilter(IQueryable<TEntity> query)

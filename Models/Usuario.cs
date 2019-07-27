@@ -35,6 +35,7 @@ namespace RestApiBase.Models
         public long IdRol {get; set;}
         
         [NotMapped]
+        [SearchFilter("Rol.Nombre")]
         public virtual string NombreRol => Rol?.Nombre;
         
         [NotMapped]
