@@ -3,7 +3,7 @@ using System;
 namespace RestApiBase.Annotations
 {
     /// <summary>
-    /// Los atributos que contengan esta anotación serán incluidos 
+    /// Las propiedades que contengan esta anotación serán incluidos 
     /// en los filtros de busquedas.
     /// </summary>
     public class SearchFilter : Attribute
@@ -14,17 +14,18 @@ namespace RestApiBase.Annotations
             Equals,
         }
 
-        private string FilterType;
-
-        public SearchFilter(string FilterType)
-        {
-            this.FilterType = FilterType;
-        }
+        public string FilterType;
+        public string nestedProp;
 
         public SearchFilter()
         {
             // contains por default
             this.FilterType = nameof(FilterTypesEnum.Contains);
+        }
+
+        public SearchFilter(string value)
+        {
+            this.nestedProp = value;
         }
     }
 }
