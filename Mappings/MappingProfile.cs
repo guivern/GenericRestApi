@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using AutoMapper;
 using RestApiBase.Controllers;
 using RestApiBase.Dtos;
@@ -12,17 +14,27 @@ namespace RestApiBase.Mappings
 
             CreateMap<ValueDto, Value>();
             CreateMap<UsuarioDto, Usuario>()
-            .ForMember(u => u.PasswordSalt, opt => opt.Ignore())
-            .ForMember(u => u.PasswordHash, opt => opt.Ignore());
+            .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.Username.ToLower()))
+            .ForMember(dest => dest.PasswordSalt, opt => opt.MapFrom(src => GenerateSalt()))
+            .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom((src, dest) => GenerateHash(src.Password, dest.PasswordSalt)));
         }
+
+        #region custom mappings
+        private byte[] GenerateSalt()
+        {
+            using (var hmac = new HMACSHA512())
+            {
+                return hmac.Key; // clave para generar el hash
+            }
+        }
+
+        private byte[] GenerateHash(string password, byte[] passwordSalt)
+        {
+            using (var hmac = new HMACSHA512(passwordSalt))
+            {
+                return hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+            }
+        }
+        #endregion
     }
 }
-/* Ejemplos:
-CreateMap<CategoriaDto, Categoria>();
-
-Mapper.CreateMap<Employee, EmployeeDto>()
-.ForMember(d => d.FullName, opt => opt.MapFrom(src => src.FirstName + " " + src.LastName));
-
-CreateMap<CategoriaDto, Categoria>()
-.ForMember(d => d.FechaCreacion, opt => opt.Ignore());
-*/
