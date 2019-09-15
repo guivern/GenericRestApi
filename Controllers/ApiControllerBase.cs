@@ -33,14 +33,14 @@ namespace RestApiBase.Controllers
         [HttpGet]
         public virtual async Task<IActionResult> List([FromQuery] string filter)
         {
-            var entities = await GetEntities(filter, true);
+            var entities = await GetEntities(filter);
             return Ok(entities);
         }
 
         [HttpGet("{id}")]
         public virtual async Task<IActionResult> Detail(long id)
         {
-            var entity = await GetEntity(id, true);
+            var entity = await GetEntity(id);
             if (entity == null) return NotFound();
 
             return Ok(entity);
@@ -63,7 +63,7 @@ namespace RestApiBase.Controllers
         {
             if (!await IsValidDto(dto, id)) return BadRequest(ModelState);
 
-            var entity = await GetEntity(id, false);
+            var entity = await GetEntity(id);
             if (entity == null) return NotFound();
 
             UpdateEntity(ref entity, dto);
@@ -76,7 +76,7 @@ namespace RestApiBase.Controllers
         [HttpDelete("{id}")]
         public virtual async Task<IActionResult> Delete(long id)
         {
-            var entity = await GetEntity(id, false);
+            var entity = await GetEntity(id);
             if (entity == null) return NotFound();
 
             DeleteEntity(entity);
@@ -85,7 +85,7 @@ namespace RestApiBase.Controllers
             return NoContent();
         }
 
-        protected virtual async Task<List<TEntity>> GetEntities(string filter, bool includeNestedEntities)
+        protected virtual async Task<List<TEntity>> GetEntities(string filter)
         {
             var query = _dbSet.AsQueryable();
 
@@ -95,13 +95,13 @@ namespace RestApiBase.Controllers
                 query = query.Where(activeFilter);
             }
 
-            if(includeNestedEntities) query = IncludeInList(query);
+            query = IncludeInList(query);
             query = Filter(query, filter);
 
             return await query.OrderByDescending(e => e.Id).ToListAsync();
         }
 
-        protected virtual async Task<TEntity> GetEntity(long id, bool includeNestedEntities)
+        protected virtual async Task<TEntity> GetEntity(long id)
         {
             var query = _dbSet.AsQueryable();
 
@@ -111,7 +111,7 @@ namespace RestApiBase.Controllers
                 query = query.Where(activeFilter);
             }
 
-            if(includeNestedEntities) query = IncludeInDetail(query);
+            query = IncludeInDetail(query);
 
             return await query.SingleOrDefaultAsync(e => e.Id == id);
         }
