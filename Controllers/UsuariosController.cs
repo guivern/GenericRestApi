@@ -32,12 +32,12 @@ namespace RestApiBase.Controllers
             return ModelState.IsValid;
         }
 
-        protected override IQueryable<Usuario> IncludeNestedEntitiesInList(IQueryable<Usuario> query)
+        protected override IQueryable<Usuario> IncludeInList(IQueryable<Usuario> query)
         {
-            return query.Include(u => u.Rol).Include(u => u.UsuarioCreador);
+            return query.Include(u => u.Rol).Include(u => u.Rol);
         }
 
-        protected override IQueryable<Usuario> IncludeNestedEntitiesInDetail(IQueryable<Usuario> query)
+        protected override IQueryable<Usuario> IncludeInDetail(IQueryable<Usuario> query)
         {
             return query.Include(u => u.Rol);
         }
