@@ -33,8 +33,9 @@ namespace RestApiBase.Controllers
         public async Task<IActionResult> Login(LoginDto dto)
         {
             var user = await _context.Usuarios
-            .Include(u => u.Rol)
-            .FirstOrDefaultAsync(u => u.Username.Equals(dto.Username.ToLower()));
+                .Include(u => u.Rol)
+                .FirstOrDefaultAsync(u => u.Activo 
+                    && u.Username.Equals(dto.Username.ToLower()));
 
             if (user == null) return Unauthorized();
 

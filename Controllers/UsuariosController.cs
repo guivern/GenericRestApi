@@ -45,8 +45,8 @@ namespace RestApiBase.Controllers
         private async Task<bool> IsValidUsername(string username, long id)
         {
             username = username.ToLower();
-            return await _context.Usuarios
-            .AnyAsync(u => u.Username.Equals(username) && u.Id != id);
+            return await _context.Usuarios.AnyAsync(u => u.Activo 
+                && u.Username.Equals(username) && u.Id != id);
         }
     }
 }
