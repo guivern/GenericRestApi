@@ -58,7 +58,7 @@ namespace GenericRestApi.Helpers
             return Expression.Lambda<Func<TEntity, bool>>(searchExp, parameter);
         }
 
-        public Expression<Func<TEntity, bool>> CreateActiveExpression(IQueryable<TEntity> query)
+        public Expression<Func<TEntity, bool>> CreateSoftDeleteExpression(IQueryable<TEntity> query)
         {
             var constant = Expression.Constant(true);
             var activeProp = Expression.Property(parameter, "Activo");

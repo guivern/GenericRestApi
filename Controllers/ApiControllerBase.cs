@@ -51,8 +51,9 @@ namespace RestApiBase.Controllers
         {
             if (!await IsValidDto(dto)) return BadRequest(ModelState);
 
-            var entity = await CreateEntity(dto);
-            BeforeSaveChanges(entity);
+            TEntity entity = _mapper.Map<TEntity>(dto);
+            await _dbSet.AddAsync(entity);
+            await BeforeSaveChangesAsync(entity);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction("Detail", new { id = entity.Id }, entity);
@@ -66,8 +67,14 @@ namespace RestApiBase.Controllers
             var entity = await GetEntity(id);
             if (entity == null) return NotFound();
 
-            UpdateEntity(ref entity, dto);
-            BeforeSaveChanges(entity);
+            entity = _mapper.Map<TDto, TEntity>(dto, entity);
+
+            if (_isAudit)
+            {
+                (entity as AuditEntityBase).FechaEdicion = DateTime.Now;
+            }
+
+            await BeforeSaveChangesAsync(entity);
             await _context.SaveChangesAsync();
 
             return NoContent();
@@ -79,7 +86,15 @@ namespace RestApiBase.Controllers
             var entity = await GetEntity(id);
             if (entity == null) return NotFound();
 
-            DeleteEntity(entity);
+            if (_isSoftDelete)
+            {
+                (entity as SoftDeleteEntityBase).Activo = false;
+            }
+            else
+            {
+                _dbSet.Remove(entity);
+            }
+
             await _context.SaveChangesAsync();
 
             return NoContent();
@@ -91,7 +106,7 @@ namespace RestApiBase.Controllers
 
             if (_isSoftDelete)
             {
-                var activeFilter = _expressionHelper.CreateActiveExpression(query);
+                var activeFilter = _expressionHelper.CreateSoftDeleteExpression(query);
                 query = query.Where(activeFilter);
             }
 
@@ -107,43 +122,13 @@ namespace RestApiBase.Controllers
 
             if (_isSoftDelete)
             {
-                var activeFilter = _expressionHelper.CreateActiveExpression(query);
+                var activeFilter = _expressionHelper.CreateSoftDeleteExpression(query);
                 query = query.Where(activeFilter);
             }
 
             query = IncludeInDetail(query);
 
             return await query.SingleOrDefaultAsync(e => e.Id == id);
-        }
-
-        protected virtual async Task<TEntity> CreateEntity(TDto dto)
-        {
-            TEntity entity = _mapper.Map<TEntity>(dto);
-            await _dbSet.AddAsync(entity);
-
-            return entity;
-        }
-
-        protected virtual void UpdateEntity(ref TEntity entity, TDto dto)
-        {
-            entity = _mapper.Map<TDto, TEntity>(dto, entity);
-
-            if (_isAudit)
-            {
-                (entity as AuditEntityBase).FechaEdicion = DateTime.Now;
-            }
-        }
-
-        protected virtual void DeleteEntity(TEntity entity)
-        {
-            if (_isSoftDelete)
-            {
-                (entity as SoftDeleteEntityBase).Activo = false;
-            }
-            else
-            {
-                _dbSet.Remove(entity);
-            }
         }
 
         protected virtual IQueryable<TEntity> Filter(IQueryable<TEntity> query, string value)
@@ -176,9 +161,9 @@ namespace RestApiBase.Controllers
         }
 
         // Unit of Work. 
-        protected virtual async void BeforeSaveChanges(TEntity entity)
+        protected virtual Task BeforeSaveChangesAsync(TEntity entity)
         {
-            await Task.Run(() => { });
+            return Task.FromResult(default(object));
         }
     }
 }
