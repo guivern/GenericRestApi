@@ -20,7 +20,6 @@ namespace RestApiBase.Controllers
         protected readonly DbSet<TEntity> _dbSet;
         protected readonly bool _isSoftDelete;
         protected readonly bool _isAudit;
-        private readonly ExpressionTreeHelper<TEntity> _expressionHelper;
 
         public ApiControllerBase(DataContext context, IMapper mapper)
         {
@@ -29,7 +28,6 @@ namespace RestApiBase.Controllers
             _dbSet = _context.Set<TEntity>();
             _isSoftDelete = typeof(TEntity).IsSubclassOf(typeof(SoftDeleteEntityBase));
             _isAudit = typeof(TEntity).IsSubclassOf(typeof(AuditEntityBase));
-            _expressionHelper = new ExpressionTreeHelper<TEntity>();
         }
 
         [HttpGet]
@@ -122,8 +120,8 @@ namespace RestApiBase.Controllers
 
             if (_isSoftDelete)
             {
-                var activeFilter = _expressionHelper.CreateSoftDeleteExpression(query);
-                query = query.Where(activeFilter);
+                var active = ExpressionTreeHelper<TEntity>.CreateSoftDeleteExpression(query);
+                query = query.Where(active);
             }
 
             query = IncludeInList(query);
@@ -141,8 +139,8 @@ namespace RestApiBase.Controllers
 
             if (_isSoftDelete)
             {
-                var activeFilter = _expressionHelper.CreateSoftDeleteExpression(query);
-                query = query.Where(activeFilter);
+                var active = ExpressionTreeHelper<TEntity>.CreateSoftDeleteExpression(query);
+                query = query.Where(active);
             }
 
             query = IncludeInDetail(query);
@@ -154,8 +152,8 @@ namespace RestApiBase.Controllers
         {
             try
             {
-                var predicate = _expressionHelper.CreateSearchExpression(query, value);
-                return query.Where(predicate);
+                var filter = ExpressionTreeHelper<TEntity>.CreateSearchExpression(query, value);
+                return query.Where(filter);
             }
             catch (Exception exception)
             {
