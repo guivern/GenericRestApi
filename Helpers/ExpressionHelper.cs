@@ -7,14 +7,8 @@ using RestApiBase.Annotations;
 
 namespace GenericRestApi.Helpers
 {
-    public class ExpressionTreeHelper<T>
+    public abstract class ExpressionHelper<T>
     {
-        /// <summary>
-        /// Crea y retorna un arbol de expresiones de busqueda.
-        /// </summary>
-        /// <param name="query">La consulta a filtrar</param>
-        /// <param name="filter">El filtro de busqueda en string</param>
-        /// <returns></returns>
         public static Expression<Func<T, bool>> CreateSearchExpression(IQueryable<T> query, string filter)
         {
             var filterProps = GetFilterProps();
@@ -38,6 +32,34 @@ namespace GenericRestApi.Helpers
             var activeExp = Expression.Equal(member, constant);
 
             return Expression.Lambda<Func<T, bool>>(activeExp, parameter);
+        }
+
+        public static MethodCallExpression CreateOrderByExpression(IQueryable<T> source, string sortProperty, string sortOrder)
+        {
+            if (string.IsNullOrEmpty(sortProperty) || string.IsNullOrEmpty(sortOrder))
+                throw new Exception();
+
+            var type = typeof(T);
+            var parameter = Expression.Parameter(type, "p");
+            var member = sortProperty.Split('.')
+                .Aggregate((Expression)parameter, Expression.PropertyOrField);
+            var selector = Expression.Lambda(member, parameter);
+            var typeArguments = new Type[] { type, member.Type };
+            var methodName = sortOrder.ToLower() == "desc" ? "OrderByDescending" : "OrderBy";
+            var orderCallExp = Expression.Call(typeof(Queryable), methodName, typeArguments,
+                source.Expression, Expression.Quote(selector));
+
+            return orderCallExp;
+        }
+
+        // convierte un string a capitalize
+        private static string FirstCharToUpper(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return string.Empty;
+            }
+            return char.ToUpper(value[0]) + value.Substring(1);
         }
 
         // Obtiene los atributos filtrables de T
@@ -65,7 +87,8 @@ namespace GenericRestApi.Helpers
 
             for (int i = 0; i < filterProps.Count(); i++)
             {
-                var attr = (SearchFilter[])filterProps[i].GetCustomAttributes(typeof(SearchFilter), false);
+                var attr = (SearchFilter[])filterProps[i]
+                    .GetCustomAttributes(typeof(SearchFilter), false);
                 var nestedProp = attr[0].nestedProp;
 
                 if (nestedProp != null)
@@ -90,7 +113,7 @@ namespace GenericRestApi.Helpers
             }
             return (MemberExpression)expression;
         }
-        
+
         private static Expression GenerateSearchExpression(MemberExpression[] members, ConstantExpression constant)
         {
             var containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) });

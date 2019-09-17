@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -33,10 +32,11 @@ namespace RestApiBase.Controllers
         [HttpGet]
         public virtual async Task<IActionResult> List(
             [FromQuery] string filter,
-            [FromQuery] int? pageSize = PagedList.DEFAULT_PAGE_SIZE,
-            [FromQuery] int? pageNumber = PagedList.DEFAULT_PAGE_NUMBER)
+            [FromQuery] int? pageSize = Constants.DEFAULT_PAGE_SIZE,
+            [FromQuery] int? pageNumber = Constants.DEFAULT_PAGE_NUMBER,
+            [FromQuery] string order = Constants.DEFAULT_ODERING)
         {
-            var entities = await GetEntities((int)pageNumber, (int)pageSize, filter);
+            var entities = await GetEntities((int)pageNumber, (int)pageSize, filter, order);
 
             var paginationHeader = JsonConvert.SerializeObject(new
             {
@@ -114,19 +114,19 @@ namespace RestApiBase.Controllers
             return NoContent();
         }
 
-        protected virtual async Task<PagedList<TEntity>> GetEntities(int pageNumber, int pageSize, string filter)
+        protected virtual async Task<PagedList<TEntity>> GetEntities(int pageNumber, int pageSize, string filter, string order)
         {
             var query = _dbSet.AsQueryable();
 
             if (_isSoftDelete)
             {
-                var active = ExpressionTreeHelper<TEntity>.CreateSoftDeleteExpression(query);
+                var active = ExpressionHelper<TEntity>.CreateSoftDeleteExpression(query);
                 query = query.Where(active);
             }
 
             query = IncludeInList(query);
             query = Filter(query, filter);
-            query = query.OrderByDescending(e => e.Id);
+            query = OrderBy(query, order);
 
             var entities = await PagedList<TEntity>.CreateAsync(query, pageNumber, pageSize);
 
@@ -139,7 +139,7 @@ namespace RestApiBase.Controllers
 
             if (_isSoftDelete)
             {
-                var active = ExpressionTreeHelper<TEntity>.CreateSoftDeleteExpression(query);
+                var active = ExpressionHelper<TEntity>.CreateSoftDeleteExpression(query);
                 query = query.Where(active);
             }
 
@@ -152,7 +152,7 @@ namespace RestApiBase.Controllers
         {
             try
             {
-                var filter = ExpressionTreeHelper<TEntity>.CreateSearchExpression(query, value);
+                var filter = ExpressionHelper<TEntity>.CreateSearchExpression(query, value);
                 return query.Where(filter);
             }
             catch (Exception exception)
@@ -160,6 +160,18 @@ namespace RestApiBase.Controllers
                 Console.WriteLine(exception.Message);
                 return query;
             }
+        }
+
+        private IQueryable<TEntity> OrderBy(IQueryable<TEntity> query, string order)
+        {
+            if (string.IsNullOrEmpty(order)) return query;
+
+            var splitedOrder = order.Split(':');
+            var columnName = splitedOrder[0];
+            var orderType = splitedOrder.Count() > 1 ? splitedOrder[1] : "asc";
+            var oderByExp = ExpressionHelper<TEntity>.CreateOrderByExpression(query, columnName, orderType);
+
+            return query.Provider.CreateQuery<TEntity>(oderByExp);
         }
 
         protected virtual Task<bool> IsValidDto(TDto dto, long id = 0)

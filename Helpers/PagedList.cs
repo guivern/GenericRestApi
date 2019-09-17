@@ -6,12 +6,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace RestApiBase.Helpers
 {
-    public abstract class PagedList
-    {
-        public const int DEFAULT_PAGE_SIZE = 5;
-        public const int DEFAULT_PAGE_NUMBER = 1;
-    }
-
     public class PagedList<T>: List<T>
     {
         public int PageNumber { get; set; }
