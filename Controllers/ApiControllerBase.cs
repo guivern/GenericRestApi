@@ -162,7 +162,7 @@ namespace RestApiBase.Controllers
             }
         }
 
-        private IQueryable<TEntity> OrderBy(IQueryable<TEntity> query, string order)
+        protected virtual IQueryable<TEntity> OrderBy(IQueryable<TEntity> query, string order)
         {
             if (string.IsNullOrEmpty(order)) return query;
 
