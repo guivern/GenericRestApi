@@ -6,7 +6,9 @@ using AutoMapper;
 using GenericRestApi.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using RestApiBase.Data;
+using RestApiBase.Helpers;
 using RestApiBase.Models;
 
 namespace RestApiBase.Controllers
@@ -31,9 +33,23 @@ namespace RestApiBase.Controllers
         }
 
         [HttpGet]
-        public virtual async Task<IActionResult> List([FromQuery] string filter)
+        public virtual async Task<IActionResult> List(
+            [FromQuery] string filter,
+            [FromQuery] int? pageSize = PagedList.DEFAULT_PAGE_SIZE,
+            [FromQuery] int? pageNumber = PagedList.DEFAULT_PAGE_NUMBER)
         {
-            var entities = await GetEntities(filter);
+            var entities = await GetEntities((int)pageNumber, (int)pageSize, filter);
+
+            var paginationHeader = JsonConvert.SerializeObject(new
+            {
+                pageNumber = entities.PageNumber,
+                pageSize = entities.PageSize,
+                totalPages = entities.TotalPages,
+                totalCount = entities.TotalCount
+            });
+
+            Response.Headers.Add("pagination", paginationHeader);
+
             return Ok(entities);
         }
 
@@ -100,7 +116,7 @@ namespace RestApiBase.Controllers
             return NoContent();
         }
 
-        protected virtual async Task<List<TEntity>> GetEntities(string filter)
+        protected virtual async Task<PagedList<TEntity>> GetEntities(int pageNumber, int pageSize, string filter)
         {
             var query = _dbSet.AsQueryable();
 
@@ -112,8 +128,11 @@ namespace RestApiBase.Controllers
 
             query = IncludeInList(query);
             query = Filter(query, filter);
+            query = query.OrderByDescending(e => e.Id);
 
-            return await query.OrderByDescending(e => e.Id).ToListAsync();
+            var entities = await PagedList<TEntity>.CreateAsync(query, pageNumber, pageSize);
+
+            return entities;
         }
 
         protected virtual async Task<TEntity> GetEntity(long id)
