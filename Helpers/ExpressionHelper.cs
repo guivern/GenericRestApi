@@ -83,7 +83,7 @@ namespace GenericRestApi.Helpers
 
         private static MemberExpression[] GenerateFilterableMembers(List<PropertyInfo> filterProps, ParameterExpression parameter)
         {
-            MemberExpression[] members = new MemberExpression[filterProps.Count()];
+            var members = new MemberExpression[filterProps.Count()];
 
             for (int i = 0; i < filterProps.Count(); i++)
             {
@@ -92,26 +92,24 @@ namespace GenericRestApi.Helpers
                 var nestedProp = attr[0].nestedProp;
 
                 if (nestedProp != null)
-                {   // si el filtro es una propiedad de una entidad anidada
-                    members[i] = GenerateNestedFilterableMember(parameter, nestedProp);
+                {   // el filtro es una propiedad de una entidad anidada
+                    // ej. u => u.Rol.Nombre
+                    Expression nestedMember = parameter;
+                    foreach (var prop in nestedProp.Split('.'))
+                    {
+                        nestedMember = Expression.PropertyOrField(nestedMember, prop);
+                    }
+                    members[i] = (MemberExpression)nestedMember;
                 }
                 else
                 {
+                    // el filtro es una propiedad de la entidad
+                    // ej. u => u.Username
                     members[i] = Expression.Property(parameter, filterProps[i]);
                 }
             }
 
             return members;
-        }
-
-        private static MemberExpression GenerateNestedFilterableMember(ParameterExpression parameter, string propertyName)
-        {
-            Expression expression = parameter;
-            foreach (var member in propertyName.Split('.'))
-            {
-                expression = Expression.PropertyOrField(expression, member);
-            }
-            return (MemberExpression)expression;
         }
 
         private static Expression GenerateSearchExpression(MemberExpression[] members, ConstantExpression constant)
