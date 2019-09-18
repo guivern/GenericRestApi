@@ -85,7 +85,7 @@ namespace RestApiBase.Controllers
 
             if (_isAudit)
             {
-                (entity as AuditEntityBase).FechaEdicion = DateTime.Now;
+                (entity as AuditEntityBase).UltimaModificacion = DateTime.Now;
             }
 
             await BeforeSaveChangesAsync(entity);

@@ -10,14 +10,14 @@ namespace RestApiBase.Models
         [ForeignKey("IdUsuarioCreador")]
         public Usuario UsuarioCreador {get; set;}
         public long? IdUsuarioCreador {get; set;}
-        [JsonIgnore]
+        
         public DateTime FechaCreacion {get; set;} = DateTime.Now;
 
         [JsonIgnore]
-        [ForeignKey("IdUsuarioEditor")]
-        public Usuario UsuarioEditor {get; set;}
-        public long? IdUsuarioEditor {get; set;}
-        [JsonIgnore]
-        public DateTime? FechaEdicion {get; set;}
+        [ForeignKey("IdUsuarioModificador")]
+        public Usuario UsuarioModificador {get; set;}
+        public long? IdUsuarioModificador {get; set;}
+
+        public DateTime? UltimaModificacion {get; set;}
     }
 }
