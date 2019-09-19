@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using AutoMapper;
 using RestApiBase.Controllers;
-using RestApiBase.Dtos;
+using RestApiBase.Dtos.Usuario;
 using RestApiBase.Models;
 
 namespace RestApiBase.Mappings
@@ -11,12 +11,16 @@ namespace RestApiBase.Mappings
     {
         public MappingProfile()
         {
-
+            // CreateMap<src, dest>();
             CreateMap<ValueDto, Value>();
+            CreateMap<Value, ValueDto>();
             CreateMap<UsuarioDto, Usuario>()
-            .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.Username.ToLower()))
-            .ForMember(dest => dest.PasswordSalt, opt => opt.MapFrom(src => GenerateSalt()))
-            .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom((src, dest) => GenerateHash(src.Password, dest.PasswordSalt)));
+                .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.Username.ToLower()))
+                .ForMember(dest => dest.PasswordSalt, opt => opt.MapFrom(src => GenerateSalt()))
+                .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom((src, dest) => GenerateHash(src.Password, dest.PasswordSalt)));
+            CreateMap<Usuario, UsuarioListDto>()
+                .ForMember(dest => dest.NombreRol, opt => opt.MapFrom(src => src.Rol.Nombre));
+            CreateMap<Usuario, UsuarioDetailDto>();
         }
 
         #region custom mappings
