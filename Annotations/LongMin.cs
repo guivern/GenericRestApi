@@ -6,7 +6,7 @@ namespace RestApiBase.Annotations
     {
         public LongMin(int length) : base(length)
         {
-            ErrorMessage = $"Debe tener al menos ${length} caracteres";
+            ErrorMessage = $"Debe tener al menos {length} caracteres";
         }
     }
 }
