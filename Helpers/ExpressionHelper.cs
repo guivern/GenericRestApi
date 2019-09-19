@@ -2,16 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
-using RestApiBase.Annotations;
 
 namespace GenericRestApi.Helpers
 {
     public abstract class ExpressionHelper<T>
     {
-        public static Expression<Func<T, bool>> CreateSearchExpression(IQueryable<T> query, string filter)
+        public static Expression<Func<T, bool>> CreateSearchExpression(IQueryable<T> query, List<string> filterProps, string filter)
         {
-            var filterProps = GetFilterProps();
             if (string.IsNullOrEmpty(filter) || filterProps.Count == 0)
                 throw new Exception("No es posible crear el arbol de expresiones");
 
@@ -62,40 +59,17 @@ namespace GenericRestApi.Helpers
             return char.ToUpper(value[0]) + value.Substring(1);
         }
 
-        // Obtiene los atributos filtrables de T
-        private static List<PropertyInfo> GetFilterProps()
-        {
-            var t = typeof(T);
-            var props = t.GetProperties();
-            var filterProps = new List<PropertyInfo>();
-
-            foreach (var prop in props)
-            {
-                var attr = (SearchFilter[])prop.GetCustomAttributes(typeof(SearchFilter), false);
-                if (attr.Length > 0)
-                {
-                    filterProps.Add(prop);
-                }
-            }
-
-            return filterProps;
-        }
-
-        private static MemberExpression[] GenerateFilterableMembers(List<PropertyInfo> filterProps, ParameterExpression parameter)
+        private static MemberExpression[] GenerateFilterableMembers(List<string> filterProps, ParameterExpression parameter)
         {
             var members = new MemberExpression[filterProps.Count()];
 
             for (int i = 0; i < filterProps.Count(); i++)
             {
-                var attr = (SearchFilter[])filterProps[i]
-                    .GetCustomAttributes(typeof(SearchFilter), false);
-                var nestedProp = attr[0].nestedProp;
-
-                if (nestedProp != null)
+                if (filterProps[i].Contains('.'))
                 {   // el filtro es una propiedad de una entidad anidada
                     // ej. u => u.Rol.Nombre
                     Expression nestedMember = parameter;
-                    foreach (var prop in nestedProp.Split('.'))
+                    foreach (var prop in filterProps[i].Split('.'))
                     {
                         nestedMember = Expression.PropertyOrField(nestedMember, prop);
                     }
