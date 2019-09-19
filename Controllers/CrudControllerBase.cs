@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -12,7 +13,7 @@ using RestApiBase.Models;
 
 namespace RestApiBase.Controllers
 {
-    public abstract class ApiControllerBase<TEntity, TDto> : ControllerBase where TEntity : EntityBase, new() where TDto : class
+    public abstract class CrudControllerBase<TEntity, TDto, TListDto, TDetailDto> : ControllerBase where TEntity : EntityBase
     {
         protected readonly DataContext _context;
         protected readonly IMapper _mapper;
@@ -20,7 +21,7 @@ namespace RestApiBase.Controllers
         protected readonly bool _isSoftDelete;
         protected readonly bool _isAudit;
 
-        public ApiControllerBase(DataContext context, IMapper mapper)
+        public CrudControllerBase(DataContext context, IMapper mapper)
         {
             _context = context;
             _mapper = mapper;
@@ -32,11 +33,24 @@ namespace RestApiBase.Controllers
         [HttpGet]
         public virtual async Task<IActionResult> List(
             [FromQuery] string filter,
-            [FromQuery] int? pageSize = Constants.DEFAULT_PAGE_SIZE,
-            [FromQuery] int? pageNumber = Constants.DEFAULT_PAGE_NUMBER,
-            [FromQuery] string order = Constants.DEFAULT_ODERING)
+            [FromQuery] string orderBy = Constants.DEFAULT_ODERING,
+            [FromQuery] int pageSize = Constants.DEFAULT_PAGE_SIZE,
+            [FromQuery] int pageNumber = Constants.DEFAULT_PAGE_NUMBER)
         {
-            var entities = await GetEntities((int)pageNumber, (int)pageSize, filter, order);
+            var query = _dbSet.AsQueryable();
+
+            if (_isSoftDelete)
+            {
+                var active = ExpressionHelper<TEntity>.CreateSoftDeleteExpression(query);
+                query = query.Where(active);
+            }
+
+            query = IncludeInList(query);
+            query = Filter(query, filter);
+            query = OrderBy(query, orderBy);
+
+            var entities = await PagedList<TEntity>.CreateAsync(query, pageNumber, pageSize);
+            var dtos = _mapper.Map<TListDto[]>(entities);
 
             var paginationHeader = JsonConvert.SerializeObject(new
             {
@@ -48,7 +62,7 @@ namespace RestApiBase.Controllers
 
             Response.Headers.Add("pagination", paginationHeader);
 
-            return Ok(entities);
+            return Ok(dtos);
         }
 
         [HttpGet("{id}")]
@@ -57,26 +71,29 @@ namespace RestApiBase.Controllers
             var entity = await GetEntity(id);
             if (entity == null) return NotFound();
 
-            return Ok(entity);
+            var dto = _mapper.Map<TDetailDto>(entity);
+
+            return Ok(dto);
         }
 
         [HttpPost]
         public virtual async Task<IActionResult> Create(TDto dto)
         {
-            if (!await IsValidDto(dto)) return BadRequest(ModelState);
+            if (!await IsValidDtoModel(dto)) return BadRequest(ModelState);
 
-            TEntity entity = _mapper.Map<TEntity>(dto);
+            var entity = _mapper.Map<TEntity>(dto);
             await _dbSet.AddAsync(entity);
             await BeforeSaveChangesAsync(entity);
             await _context.SaveChangesAsync();
-
-            return CreatedAtAction("Detail", new { id = entity.Id }, entity);
+            var dtoDetail = _mapper.Map<TDetailDto>(entity);
+            
+            return CreatedAtAction("Detail", new { id = entity.Id }, dtoDetail);
         }
 
         [HttpPut("{id}")]
         public virtual async Task<IActionResult> Update(long id, TDto dto)
         {
-            if (!await IsValidDto(dto, id)) return BadRequest(ModelState);
+            if (!await IsValidDtoModel(dto, id)) return BadRequest(ModelState);
 
             var entity = await GetEntity(id);
             if (entity == null) return NotFound();
@@ -114,25 +131,6 @@ namespace RestApiBase.Controllers
             return NoContent();
         }
 
-        protected virtual async Task<PagedList<TEntity>> GetEntities(int pageNumber, int pageSize, string filter, string order)
-        {
-            var query = _dbSet.AsQueryable();
-
-            if (_isSoftDelete)
-            {
-                var active = ExpressionHelper<TEntity>.CreateSoftDeleteExpression(query);
-                query = query.Where(active);
-            }
-
-            query = IncludeInList(query);
-            query = Filter(query, filter);
-            query = OrderBy(query, order);
-
-            var entities = await PagedList<TEntity>.CreateAsync(query, pageNumber, pageSize);
-
-            return entities;
-        }
-
         protected virtual async Task<TEntity> GetEntity(long id)
         {
             var query = _dbSet.AsQueryable();
@@ -152,12 +150,12 @@ namespace RestApiBase.Controllers
         {
             try
             {
-                var filter = ExpressionHelper<TEntity>.CreateSearchExpression(query, value);
+                var filterProps = GetFilterableProperties();
+                var filter = ExpressionHelper<TEntity>.CreateSearchExpression(query, filterProps, value);
                 return query.Where(filter);
             }
-            catch (Exception exception)
+            catch (Exception)
             {
-                Console.WriteLine(exception.Message);
                 return query;
             }
         }
@@ -174,25 +172,10 @@ namespace RestApiBase.Controllers
             return query.Provider.CreateQuery<TEntity>(oderByExp);
         }
 
-        protected virtual Task<bool> IsValidDto(TDto dto, long id = 0)
-        {
-            return Task.Run(() => ModelState.IsValid);
-        }
-
-        protected virtual IQueryable<TEntity> IncludeInList(IQueryable<TEntity> query)
-        {
-            return query;
-        }
-
-        protected virtual IQueryable<TEntity> IncludeInDetail(IQueryable<TEntity> query)
-        {
-            return query;
-        }
-
-        // Unit of Work. 
-        protected virtual Task BeforeSaveChangesAsync(TEntity entity)
-        {
-            return Task.FromResult(default(object));
-        }
+        protected abstract Task<bool> IsValidDtoModel(TDto dto, long id = 0);
+        protected abstract IQueryable<TEntity> IncludeInList(IQueryable<TEntity> query);
+        protected abstract IQueryable<TEntity> IncludeInDetail(IQueryable<TEntity> query);
+        protected abstract List<string> GetFilterableProperties();
+        protected abstract Task BeforeSaveChangesAsync(TEntity entity);
     }
 }
