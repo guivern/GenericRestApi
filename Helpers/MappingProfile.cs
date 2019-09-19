@@ -5,7 +5,7 @@ using RestApiBase.Controllers;
 using RestApiBase.Dtos.Usuario;
 using RestApiBase.Models;
 
-namespace RestApiBase.Mappings
+namespace RestApiBase.Helpers
 {
     public class MappingProfile : Profile
     {

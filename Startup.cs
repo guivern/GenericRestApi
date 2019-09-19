@@ -11,7 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using RestApiBase.Data;
-using RestApiBase.Mappings;
+using RestApiBase.Helpers;
 
 namespace RestApiBase
 {
