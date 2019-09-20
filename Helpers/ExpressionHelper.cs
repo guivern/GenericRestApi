@@ -5,6 +5,10 @@ using System.Linq.Expressions;
 
 namespace GenericRestApi.Helpers
 {
+    /// <summary>
+    /// Clase de ayuda para crear querys dinamicos.
+    /// </summary>
+    /// <typeparam name="T">Tipo de la entidad</typeparam>
     public abstract class ExpressionHelper<T>
     {
         public static IQueryable<T> GenerateSearchQuery(List<string> filterProps, IQueryable<T> query, string filter)
