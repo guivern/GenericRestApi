@@ -33,7 +33,7 @@ namespace RestApiBase.Controllers
         [HttpGet]
         public virtual async Task<IActionResult> List(
             [FromQuery] string filter,
-            [FromQuery] string orderBy = Constants.DEFAULT_ODERING,
+            [FromQuery] List<string> orderBy,
             [FromQuery] int pageSize = Constants.DEFAULT_PAGE_SIZE,
             [FromQuery] int pageNumber = Constants.DEFAULT_PAGE_NUMBER)
         {
@@ -41,8 +41,7 @@ namespace RestApiBase.Controllers
 
             if (_isSoftDelete)
             {
-                var active = ExpressionHelper<TEntity>.CreateSoftDeleteExpression(query);
-                query = query.Where(active);
+                query = ExpressionHelper<TEntity>.GenerateSoftDeleteQuery(query);
             }
 
             query = IncludeInList(query);
@@ -137,8 +136,7 @@ namespace RestApiBase.Controllers
 
             if (_isSoftDelete)
             {
-                var active = ExpressionHelper<TEntity>.CreateSoftDeleteExpression(query);
-                query = query.Where(active);
+                query = ExpressionHelper<TEntity>.GenerateSoftDeleteQuery(query);
             }
 
             query = IncludeInDetail(query);
@@ -151,8 +149,8 @@ namespace RestApiBase.Controllers
             try
             {
                 var filterProps = GetFilterableProperties();
-                var filter = ExpressionHelper<TEntity>.CreateSearchExpression(query, filterProps, value);
-                return query.Where(filter);
+                var filteredQuery = ExpressionHelper<TEntity>.GenerateSearchQuery(filterProps, query, value);
+                return filteredQuery;
             }
             catch (Exception)
             {
@@ -160,16 +158,14 @@ namespace RestApiBase.Controllers
             }
         }
 
-        protected virtual IQueryable<TEntity> OrderBy(IQueryable<TEntity> query, string order)
+        protected virtual IQueryable<TEntity> OrderBy(IQueryable<TEntity> query, List<string> orderProperties)
         {
-            if (string.IsNullOrEmpty(order)) return query;
+            if (orderProperties.Count() == 0)
+                orderProperties.Add(Constants.DEFAULT_ODERING);
 
-            var splitedOrder = order.Split(':');
-            var columnName = splitedOrder[0];
-            var orderType = splitedOrder.Count() > 1 ? splitedOrder[1] : "asc";
-            var oderByExp = ExpressionHelper<TEntity>.CreateOrderByExpression(query, columnName, orderType);
+            var orderedQuery = ExpressionHelper<TEntity>.GenerateOrderByQuery(query, orderProperties);
 
-            return query.Provider.CreateQuery<TEntity>(oderByExp);
+            return orderedQuery;
         }
 
         protected abstract Task<bool> IsValidDtoModel(TDto dto, long id = 0);
