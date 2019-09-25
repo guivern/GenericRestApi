@@ -50,16 +50,8 @@ namespace RestApiBase.Controllers
 
             var entities = await PagedList<TEntity>.CreateAsync(query, pageNumber, pageSize);
             var dtos = _mapper.Map<TListDto[]>(entities);
-
-            var paginationHeader = JsonConvert.SerializeObject(new
-            {
-                pageNumber = entities.PageNumber,
-                pageSize = entities.PageSize,
-                totalPages = entities.TotalPages,
-                totalCount = entities.TotalCount
-            });
-
-            Response.Headers.Add("pagination", paginationHeader);
+            
+            Response.AddPagination(entities.PageNumber, entities.PageSize, entities.TotalPages, entities.TotalCount);
 
             return Ok(dtos);
         }
